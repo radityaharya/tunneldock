@@ -4,12 +4,11 @@ WORKDIR /app
 
 RUN apk add --no-cache docker-cli
 
-COPY package*.json bun.lockb ./
+COPY package*.json bun.lock ./
 
 RUN bun install --production
 
 COPY src/ ./src/
-COPY data/ ./data/
 COPY tsconfig.json ./
 
 RUN mkdir -p /app/data

@@ -21,7 +21,7 @@ export class CloudflareService {
   async initialize(): Promise<void> {
     try {
       logger.info("Starting Cloudflare service initialization...");
-      
+
       logger.debug("Validating account credentials...");
       // Validate credentials
       const account = await this.cloudflare.accounts.get({
@@ -41,7 +41,10 @@ export class CloudflareService {
         throw new Error("Invalid zone ID");
       }
       this.domain = zone.name;
-      logger.debug({ zoneName: zone.name }, "Zone details fetched successfully");
+      logger.debug(
+        { zoneName: zone.name },
+        "Zone details fetched successfully"
+      );
 
       // Verify tunnel exists
       logger.debug("Verifying tunnel...");
@@ -134,10 +137,10 @@ export class CloudflareService {
     try {
       logger.info({ tunnelId, config }, `Updating tunnel configuration`);
 
-      const currentConfig = await this.cloudflare.zeroTrust.tunnels.configurations.get(
-        tunnelId,
-        { account_id: this.accountId }
-      );
+      const currentConfig =
+        await this.cloudflare.zeroTrust.tunnels.configurations.get(tunnelId, {
+          account_id: this.accountId,
+        });
 
       const defaultOriginRequest = {
         connectTimeout: 0,
@@ -149,12 +152,12 @@ export class CloudflareService {
 
       // Get current ingress rules or initialize with default catch-all
       let ingressRules = currentConfig.config?.ingress || [
-        { service: "http_status:404", hostname: "*" }
+        { service: "http_status:404", hostname: "*" },
       ];
 
       // Find if there's an existing rule for this hostname
       const existingRuleIndex = ingressRules.findIndex(
-        rule => rule.hostname === config.hostname
+        (rule) => rule.hostname === config.hostname
       );
 
       const newRule = {
@@ -199,6 +202,70 @@ export class CloudflareService {
       logger.error(
         { err: error, tunnelId, config },
         `Error updating tunnel configuration`
+      );
+      throw error;
+    }
+  }
+
+  async deleteTunnelConfig(hostname: string, tunnelId: string): Promise<void> {
+    try {
+      logger.info({ hostname, tunnelId }, "Deleting tunnel configuration");
+
+      // First, find and remove the DNS record
+      const records = await this.cloudflare.dns.records.list({
+        zone_id: this.zoneId,
+        name: {
+          exact: hostname,
+        },
+        type: "CNAME",
+      });
+      console.log(records);
+      if (records.result && records.result.length > 0) {
+        const record = records.result[0];
+        await this.cloudflare.dns.records.delete(record.id, {
+          zone_id: this.zoneId,
+        });
+        logger.debug({ hostname }, "DNS record deleted");
+      } else {
+        logger.debug({ hostname }, "No DNS record found to delete");
+      }
+
+      // Then remove the tunnel ingress configuration
+      const currentConfig =
+        await this.cloudflare.zeroTrust.tunnels.configurations.get(tunnelId, {
+          account_id: this.accountId,
+        });
+
+      let ingressRules = currentConfig.config?.ingress || [];
+
+      // Filter out the rule for this hostname
+      ingressRules = ingressRules.filter((rule) => rule.hostname !== hostname);
+
+      // Make sure we still have the catch-all rule
+      if (!ingressRules.find((rule) => rule.hostname === "*")) {
+        ingressRules.push({ service: "http_status:404", hostname: "*" });
+      }
+
+      const tunnelConfig = {
+        account_id: this.accountId,
+        config: {
+          ingress: ingressRules,
+        },
+      };
+
+      await this.cloudflare.zeroTrust.tunnels.configurations.update(
+        tunnelId,
+        tunnelConfig
+      );
+
+      logger.info(
+        { hostname, tunnelId },
+        "Successfully deleted tunnel configuration and DNS record"
+      );
+    } catch (error) {
+      logger.error(
+        { err: error, hostname, tunnelId },
+        "Error deleting tunnel configuration"
       );
       throw error;
     }
