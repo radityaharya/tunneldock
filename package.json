@@ -1,0 +1,28 @@
+{
+  "name": "tunneldock",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "description": "",
+  "dependencies": {
+    "@types/node": "^22.13.4",
+    "cloudflare": "^4.1.0",
+    "dockerode": "^4.0.4",
+    "dotenv": "^16.4.7",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "typescript": "^5.7.3",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.34",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2"
+  }
+}
